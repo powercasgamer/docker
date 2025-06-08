@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  luckperms-restapi:
+    image: ghcr.io/luckperms/rest-api
+    container_name: luckperms-restapi
+    restart: unless-stopped
+    ports:
+      - ${LUCKPERMS_RESTAPI_PORT:-8080}:8080
+    # Only needed if database is on a different host (not in Docker)
+    extra_hosts:
+      - "database:host-gateway"
+    environment:
+      - TZ=${TZ:-Europe/Amsterdam}
+      - LUCKPERMS_STORAGE_METHOD=${LUCKPERMS_STORAGE_METHOD:-mariadb}
+      - LUCKPERMS_DATA_ADDRESS=${LUCKPERMS_DATA_ADDRESS:-database:3306}
+      - LUCKPERMS_DATA_DATABASE=${LUCKPERMS_DATA_DATABASE:-luckperms}
+      - LUCKPERMS_DATA_USERNAME=${LUCKPERMS_DATA_USERNAME:-sqluser}
+      - LUCKPERMS_DATA_PASSWORD=${LUCKPERMS_DATA_PASSWORD:-changeme}
+      - LUCKPERMS_REST_HTTP_PORT=${LUCKPERMS_RESTAPI_PORT:-8080}
+      - LUCKPERMS_REST_AUTH=${LUCKPERMS_RESTAPI_AUTH:-false}

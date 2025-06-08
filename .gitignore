@@ -11,8 +11,6 @@ jars/
 spigot/libs/
 .kotlin
 
-extra/menu/src/Axel
-
 # Created by git when using merge tools for conflicts
 *.BACKUP.*
 *.BASE.*
