@@ -1,0 +1,33 @@
+services:
+  npmplus:
+    container_name: npmplus
+    image: docker.io/zoeyvid/npmplus:latest
+    restart: always
+    network_mode: host
+    volumes:
+      - "${DATA_FOLDER}/npm:/data"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - ACME_EMAIL=${ACME_EMAIL}
+      #      - ACME_SERVER=https://acme-v02.api.letsencrypt.org/directory
+      - NPM_PORT=${NPM_PORT}
+      - GOA_PORT=${GOA_PORT}
+      - GOA=true
+      - LOGROTATE=${LOGROTATE}
+      - LOGROTATIONS=${LOGROTATIONS}
+
+  geoipupdate:
+    container_name: geoipupdate
+    image: docker.io/maxmindinc/geoipupdate:latest
+    restart: always
+    network_mode: bridge
+    environment:
+      - TZ=${TZ}
+      - GEOIPUPDATE_EDITION_IDS=GeoLite2-Country GeoLite2-City GeoLite2-ASN
+      - GEOIPUPDATE_ACCOUNT_ID=${MAXMIND_ACCOUNT_ID}
+      - GEOIPUPDATE_LICENSE_KEY=${MAXMIND_LICENSE_KEY}
+      - GEOIPUPDATE_FREQUENCY=24
+    volumes:
+      - ${DATA_FOLDER}/goaccess/geoip:/usr/share/GeoIP

@@ -1,0 +1,32 @@
+secrets:
+  cf-token:
+    file: ./cf-token
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    secrets:
+      - cf-token
+    env_file: .env
+    networks:
+      - proxy
+    ports:
+      - 80:80
+      - 443:443
+      - 10000:10000
+      - 33073:33073
+    environment:
+      - TRAEFIK_DASHBOARD_CREDENTIALS=${TRAEFIK_DASHBOARD_CREDENTIALS}
+      - CF_DNS_API_TOKEN_FILE=/run/secrets/cf-token
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config/traefik.yaml:/traefik.yaml:ro
+      - ./config/acme.json:/acme.json
+      - ./config/config.yaml:/config.yaml:ro
+      - ./logs:/var/log/traefik
+
+networks:
+  proxy:
+    external: true

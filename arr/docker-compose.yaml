@@ -1,0 +1,200 @@
+version: '3.9'
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - ${GLUETUN_WEBUI_PORT}:8888/tcp
+      - ${QBITTORRENT_WEBUI_PORT}:9091/tcp
+      - ${TORRENT_P2P_PORT}:51413/tcp
+      - ${TORRENT_P2P_PORT}:51413/udp
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE}
+      - VPN_TYPE=${VPN_TYPE}
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - SERVER_COUNTRIES=${SERVER_COUNTRIES}
+    volumes:
+      - ${DATA_FOLDER}/gluetun:/gluetun
+    healthcheck:
+      test: >
+        CMD-SHELL curl -s --max-time 10 https://am.i.mullvad.net/connected |
+        grep -q 'You are connected to Mullvad'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gluetun.rule=Host(`vpn.${DOMAIN}`)"
+
+  qbittorrent:
+    image: linuxserver/qbittorrent
+    container_name: qbittorrent
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=9091
+    volumes:
+      - ${DATA_FOLDER}/qbittorrent/config:/config
+      - ${DATA_FOLDER}/downloads:/downloads
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbit.${DOMAIN}`)"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${DATA_FOLDER}/prowlarr/config:/config
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN}`)"
+
+  sonarr:
+    image: linuxserver/sonarr
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${DATA_FOLDER}/sonarr/config:/config
+      - ${DATA_FOLDER}/sonarr/custom-services.d:/custom-services.d
+      - ${DATA_FOLDER}/sonarr/custom-cont-init.d:/custom-cont-init.d
+      - ${DATA_FOLDER}/downloads:/downloads
+      - ${DATA_FOLDER}/media/series:/tv
+    ports:
+      - ${SONARR_PORT}:8989
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN}`)"
+
+  radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${DATA_FOLDER}/radarr/config:/config
+      - ${DATA_FOLDER}/radarr/custom-services.d:/custom-services.d
+      - ${DATA_FOLDER}/radarr/custom-cont-init.d:/custom-cont-init.d
+      - ${DATA_FOLDER}/downloads:/downloads
+      - ${DATA_FOLDER}/media/movies:/movies
+    ports:
+      - ${RADARR_PORT}:7878
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN}`)"
+
+  bazarr:
+    image: linuxserver/bazarr
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${DATA_FOLDER}/bazarr/config:/config
+      - ${DATA_FOLDER}/media:/media
+      - ${DATA_FOLDER}/downloads:/downloads
+    ports:
+      - ${BAZARR_PORT}:6767
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN}`)"
+
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - JELLYFIN_PublishedServerUrl=https://jellyfin.${DOMAIN} # internal=https://jellyfin.internal.horst.uno, external=https://jellyfin.horst.uno
+    volumes:
+      - ${DATA_FOLDER}/jellyfin/config:/config
+      - ${DATA_FOLDER}/jellyfin/cache:/cache
+      - ${DATA_FOLDER}/media:/media:ro
+    ports:
+      - ${JELLYFIN_PORT}:8096
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - LOG_LEVEL=info
+    volumes:
+      - ${DATA_FOLDER}/jellyseerr/config:/app/config
+    ports:
+      - ${JELLYSEERR_PORT}:5055
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.${DOMAIN}`)"
+  #  decluttarr:
+  #    image: ghcr.io/manimatter/decluttarr:latest
+  #    container_name: decluttarr
+  #    environment:
+  #      - PUID=${PUID}
+  #      - PGID=${PGID}
+  #      - TZ=${TZ}
+  #      - LOG_LEVEL=info
+  #    volumes:
+  #      - ${DATA_FOLDER}/decluttarr/config:/app/config
+  #      - ${DATA_FOLDER}/decluttarr/config/config.yaml:/app/config/confi.yaml
+  #    ports:
+  #      - ${DECLUTTARR_PORT}:5055
+  #    restart: unless-stopped
+  #    labels:
+  #      - "traefik.enable=true"
+  #      - "traefik.http.routers.decluttarr.rule=Host(`decluttarr.${DOMAIN}`)"
+  huntarr:
+    image: huntarr/huntarr:latest
+    container_name: huntarr
+    restart: unless-stopped
+    ports:
+      - "${HUNTARR_PORT}:9705"
+    volumes:
+      - ${DATA_FOLDER}/decluttarr/config:/config
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.huntarr.rule=Host(`huntarr.${DOMAIN}`)"
